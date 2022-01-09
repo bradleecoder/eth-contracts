@@ -104,10 +104,10 @@ contract EthCrossChainManager is IEthCrossChainManager, UpgradableECCM {
         bytes memory rawParam = abi.encodePacked(ZeroCopySink.WriteVarBytes(paramTxHash),
             ZeroCopySink.WriteVarBytes(abi.encodePacked(sha256(abi.encodePacked(address(this), paramTxHash)))),
             ZeroCopySink.WriteVarBytes(Utils.addressToBytes(msg.sender)),
-            ZeroCopySink.WriteUint64(toChainId),
-            ZeroCopySink.WriteVarBytes(toContract),
-            ZeroCopySink.WriteVarBytes(method),
-            ZeroCopySink.WriteVarBytes(txData)
+            ZeroCopySink.WriteUint64(toChainId)
+//            ZeroCopySink.WriteVarBytes(toContract),
+//            ZeroCopySink.WriteVarBytes(method),
+//            ZeroCopySink.WriteVarBytes(txData)
         );
 
         // Must save it in the storage to be included in the proof to be verified.
