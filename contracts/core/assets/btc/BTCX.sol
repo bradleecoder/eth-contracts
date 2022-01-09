@@ -23,7 +23,6 @@ contract BTCX is ERC20Extended {
     }
     function setMinimumLimit(uint64 minimumTransferLimit) onlyOperator public returns (bool) {
         minimumLimit = minimumTransferLimit;
-        return true;
     }
     /* @notice                  This function is meant to be invoked by the ETH crosschain management contract,
     *                           then mint a certin amount of tokens to the designated address since a certain amount 

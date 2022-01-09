@@ -18,10 +18,10 @@ contract LockProxy is Ownable {
         bytes toAddress;
         uint256 amount;
     }
-    address public managerProxyContract;//this chain's eccmp
-    mapping(uint64 => bytes) public proxyHashMap;//chainid=>target lock proxy address
-    mapping(address => mapping(uint64 => bytes)) public assetHashMap;//bind two chains info //assetHashMap[fromAssetHash][toChainId] = toAssetHash;
-    mapping(address => bool) safeTransfer;//not used
+    address public managerProxyContract;
+    mapping(uint64 => bytes) public proxyHashMap;
+    mapping(address => mapping(uint64 => bytes)) public assetHashMap;
+    mapping(address => bool) safeTransfer;
 
     event SetManagerProxyEvent(address manager);
     event BindProxyEvent(uint64 toChainId, bytes targetProxyHash);
@@ -61,11 +61,10 @@ contract LockProxy is Ownable {
     *  @param toAddress         The address in bytes format to receive same amount of tokens in target chain 
     *  @param amount            The amount of tokens to be crossed from ethereum to the chain with chainId
     */
-    //lock token to this proxy and save tx
     function lock(address fromAssetHash, uint64 toChainId, bytes memory toAddress, uint256 amount) public payable returns (bool) {
         require(amount != 0, "amount cannot be zero!");
         
-        //first transfer token to here
+        
         require(_transferToContract(fromAssetHash, amount), "transfer asset from fromAddress to lock_proxy contract  failed!");
         
         bytes memory toAssetHash = assetHashMap[fromAssetHash][toChainId];
@@ -77,14 +76,13 @@ contract LockProxy is Ownable {
             amount: amount
         });
         bytes memory txData = _serializeTxArgs(txArgs);
-        //get eccm address from eccmproxy
+        
         IEthCrossChainManagerProxy eccmp = IEthCrossChainManagerProxy(managerProxyContract);
         address eccmAddr = eccmp.getEthCrossChainManager();
         IEthCrossChainManager eccm = IEthCrossChainManager(eccmAddr);
         
         bytes memory toProxyHash = proxyHashMap[toChainId];
         require(toProxyHash.length != 0, "empty illegal toProxyHash");
-        //call crossChain,fire the crosschain event,then relayer will get event
         require(eccm.crossChain(toChainId, toProxyHash, "unlock", txData), "EthCrossChainManager crossChain executed error!");
 
         emit LockEvent(fromAssetHash, _msgSender(), toChainId, toAssetHash, toAddress, amount);
@@ -113,7 +111,7 @@ contract LockProxy is Ownable {
         require(args.toAddress.length != 0, "toAddress cannot be empty");
         address toAddress = Utils.bytesToAddress(args.toAddress);
         
-        //transfer token to user
+        
         require(_transferFromContract(toAssetHash, toAddress, args.amount), "transfer asset from lock_proxy contract to toAddress failed!");
         
         emit UnlockEvent(toAssetHash, toAddress, args.amount);
@@ -156,18 +154,18 @@ contract LockProxy is Ownable {
         return true;
     }
     
-    
     function _transferERC20ToContract(address fromAssetHash, address fromAddress, address toAddress, uint256 amount) internal returns (bool) {
-         IERC20 erc20Token = IERC20(fromAssetHash);
+        IERC20 erc20Token = IERC20(fromAssetHash);
         //  require(erc20Token.transferFrom(fromAddress, toAddress, amount), "trasnfer ERC20 Token failed!");
-         erc20Token.safeTransferFrom(fromAddress, toAddress, amount);
-         return true;
+        erc20Token.safeTransferFrom(fromAddress, toAddress, amount);
+        return true;
     }
+
     function _transferERC20FromContract(address toAssetHash, address toAddress, uint256 amount) internal returns (bool) {
-         IERC20 erc20Token = IERC20(toAssetHash);
+        IERC20 erc20Token = IERC20(toAssetHash);
         //  require(erc20Token.transfer(toAddress, amount), "trasnfer ERC20 Token failed!");
-         erc20Token.safeTransfer(toAddress, amount);
-         return true;
+        erc20Token.safeTransfer(toAddress, amount);
+        return true;
     }
     
     function _serializeTxArgs(TxArgs memory args) internal pure returns (bytes memory) {

@@ -1,5 +1,4 @@
 pragma solidity ^0.5.0;
-pragma experimental ABIEncoderV2;
 
 import "./../../../libs/math/SafeMath.sol";
 import "./../../../libs/common/ZeroCopySource.sol";
@@ -9,82 +8,22 @@ import "./../upgrade/UpgradableECCM.sol";
 import "./../libs/EthCrossChainUtils.sol";
 import "./../interface/IEthCrossChainManager.sol";
 import "./../interface/IEthCrossChainData.sol";
+
 contract EthCrossChainManager is IEthCrossChainManager, UpgradableECCM {
     using SafeMath for uint256;
     
-    address public whiteLister;//only this user can set white list ?
-    mapping(address => bool) public whiteListFromContract;//from contract =>true,like bep20 token contract of bsc
-    mapping(address => mapping(bytes => bool)) public whiteListContractMethodMap;//to contract address=>method=>true
-
     event InitGenesisBlockEvent(uint256 height, bytes rawHeader);
     event ChangeBookKeeperEvent(uint256 height, bytes rawHeader);
-    //monitor this event and call VerifyHeaderAndExecuteTx
     event CrossChainEvent(address indexed sender, bytes txId, address proxyOrAssetContract, uint64 toChainId, bytes toContract, bytes rawdata);
     event VerifyHeaderAndExecuteTxEvent(uint64 fromChainID, bytes toContract, bytes crossChainTxHash, bytes fromChainTxHash);
-    constructor(
-        address _eccd, //data save contract
-        uint64 _chainId, //save this chain's chainid
-        address[] memory fromContractWhiteList, 
-        bytes[] memory contractMethodWhiteList
-    ) UpgradableECCM(_eccd,_chainId) public {
-        whiteLister = msg.sender;
-        for (uint i=0;i<fromContractWhiteList.length;i++) {
-            whiteListFromContract[fromContractWhiteList[i]] = true;
-        }
-        for (uint i=0;i<contractMethodWhiteList.length;i++) {
-            (address toContract,bytes[] memory methods) = abi.decode(contractMethodWhiteList[i],(address,bytes[]));
-            for (uint j=0;j<methods.length;j++) {
-                whiteListContractMethodMap[toContract][methods[j]] = true;
-            }
-        }
-    }
     
-    modifier onlyWhiteLister() {
-        require(msg.sender == whiteLister, "Not whiteLister");
-        _;
-    }
-
-    function setWhiteLister(address newWL) public onlyWhiteLister {
-        require(newWL!=address(0), "Can not transfer to address(0)");
-        whiteLister = newWL;
-    }
+    constructor(address _eccd, uint64 _chainId) UpgradableECCM(_eccd, _chainId) public {}
     
-    function setFromContractWhiteList(address[] memory fromContractWhiteList) public onlyWhiteLister {
-        for (uint i=0;i<fromContractWhiteList.length;i++) {
-            whiteListFromContract[fromContractWhiteList[i]] = true;
-        }
-    }
-    
-    function removeFromContractWhiteList(address[] memory fromContractWhiteList) public onlyWhiteLister {
-        for (uint i=0;i<fromContractWhiteList.length;i++) {
-            whiteListFromContract[fromContractWhiteList[i]] = false;
-        }
-    }
-    
-    function setContractMethodWhiteList(bytes[] memory contractMethodWhiteList) public onlyWhiteLister {
-        for (uint i=0;i<contractMethodWhiteList.length;i++) {
-            (address toContract,bytes[] memory methods) = abi.decode(contractMethodWhiteList[i],(address,bytes[]));
-            for (uint j=0;j<methods.length;j++) {
-                whiteListContractMethodMap[toContract][methods[j]] = true;
-            }
-        }
-    }
-    
-    function removeContractMethodWhiteList(bytes[] memory contractMethodWhiteList) public onlyWhiteLister {
-        for (uint i=0;i<contractMethodWhiteList.length;i++) {
-            (address toContract,bytes[] memory methods) = abi.decode(contractMethodWhiteList[i],(address,bytes[]));
-            for (uint j=0;j<methods.length;j++) {
-                whiteListContractMethodMap[toContract][methods[j]] = false;
-            }
-        }
-    }
-
     /* @notice              sync Poly chain genesis block header to smart contrat
     *  @dev                 this function can only be called once, nextbookkeeper of rawHeader can't be empty
     *  @param rawHeader     Poly chain genesis block raw header or raw Header including switching consensus peers info
     *  @return              true or false
     */
-    //set poly blockchain's genesis block header,only call once
     function initGenesisBlock(bytes memory rawHeader, bytes memory pubKeyList) whenNotPaused public returns(bool) {
         // Load Ethereum cross chain data contract
         IEthCrossChainData eccd = IEthCrossChainData(EthCrossChainDataAddress);
@@ -98,7 +37,6 @@ contract EthCrossChainManager is IEthCrossChainManager, UpgradableECCM {
         require(header.nextBookkeeper == nextBookKeeper, "NextBookers illegal");
         
         // Record current epoch start height and public keys (by storing them in address format)
-        //save height and keepers address to eccd contract
         require(eccd.putCurEpochStartHeight(header.height), "Save Poly chain current epoch start height to Data contract failed!");
         require(eccd.putCurEpochConPubKeyBytes(ECCUtils.serializeKeepers(keepers)), "Save Poly chain current epoch book keepers to Data contract failed!");
         
@@ -113,7 +51,6 @@ contract EthCrossChainManager is IEthCrossChainManager, UpgradableECCM {
     *  @param sigList       Poly chain consensus nodes signature list
     *  @return              true or false
     */
-    //when epoch change book keeper may change,need relayer update this data
     function changeBookKeeper(bytes memory rawHeader, bytes memory pubKeyList, bytes memory sigList) whenNotPaused public returns(bool) {
         // Load Ethereum cross chain data contract
         ECCUtils.Header memory header = ECCUtils.deserializeHeader(rawHeader);
@@ -129,7 +66,6 @@ contract EthCrossChainManager is IEthCrossChainManager, UpgradableECCM {
         // Verify signature of rawHeader comes from pubKeyList
         address[] memory polyChainBKs = ECCUtils.deserializeKeepers(eccd.getCurEpochConPubKeyBytes());
         uint n = polyChainBKs.length;
-        //verify this raw header was signed by old keeper
         require(ECCUtils.verifySig(rawHeader, sigList, polyChainBKs, n - (n - 1) / 3), "Verify signature failed!");
         
         // Convert pubKeyList into ethereum address format and make sure the compound address from the converted ethereum addresses
@@ -154,37 +90,30 @@ contract EthCrossChainManager is IEthCrossChainManager, UpgradableECCM {
     *  @param txData        Transaction data for target chain, include to_address, amount
     *  @return              true or false
     */
-    //user call lock and lock proxy will call this method
-    //relayer will catch this event then write to poly chain
     function crossChain(uint64 toChainId, bytes calldata toContract, bytes calldata method, bytes calldata txData) whenNotPaused external returns (bool) {
-        // Only allow whitelist contract to call,like must set bep20 token's contract address of bsc here
-        require(whiteListFromContract[msg.sender],"Invalid from contract");
-        
         // Load Ethereum cross chain data contract
         IEthCrossChainData eccd = IEthCrossChainData(EthCrossChainDataAddress);
         
         // To help differentiate two txs, the ethTxHashIndex is increasing automatically
         uint256 txHashIndex = eccd.getEthTxHashIndex();
         
-        // Convert the uint256 into bytes,last tx's hash
+        // Convert the uint256 into bytes
         bytes memory paramTxHash = Utils.uint256ToBytes(txHashIndex);
         
         // Construct the makeTxParam, and put the hash info storage, to help provide proof of tx existence
-        //pack crosschain data
         bytes memory rawParam = abi.encodePacked(ZeroCopySink.WriteVarBytes(paramTxHash),
-            ZeroCopySink.WriteVarBytes(abi.encodePacked(sha256(abi.encodePacked(address(this), paramTxHash)))),//pack this ecmm's address
+            ZeroCopySink.WriteVarBytes(abi.encodePacked(sha256(abi.encodePacked(address(this), paramTxHash)))),
             ZeroCopySink.WriteVarBytes(Utils.addressToBytes(msg.sender)),
             ZeroCopySink.WriteUint64(toChainId),
             ZeroCopySink.WriteVarBytes(toContract),
             ZeroCopySink.WriteVarBytes(method),
-            ZeroCopySink.WriteVarBytes(txData)//like transfer method and value
+            ZeroCopySink.WriteVarBytes(txData)
         );
         
         // Must save it in the storage to be included in the proof to be verified.
         require(eccd.putEthTxHash(keccak256(rawParam)), "Save ethTxHash by index to Data contract failed!");
         
         // Fire the cross chain event denoting there is a cross chain request from Ethereum network to other public chains through Poly chain network
-        //relayer will catch this set to poly chain
         emit CrossChainEvent(tx.origin, paramTxHash, msg.sender, toChainId, toContract, rawParam);
         return true;
     }
@@ -197,7 +126,6 @@ contract EthCrossChainManager is IEthCrossChainManager, UpgradableECCM {
     *                       used to verify the validity of curRawHeader
     *  @return              true or false
     */
-    //relayer will call checkIfFromChainTxExist from poly chain and then call this method
     function verifyHeaderAndExecuteTx(bytes memory proof, bytes memory rawHeader, bytes memory headerProof, bytes memory curRawHeader,bytes memory headerSig) whenNotPaused public returns (bool){
         ECCUtils.Header memory header = ECCUtils.deserializeHeader(rawHeader);
         // Load ehereum cross chain data contract
@@ -209,7 +137,6 @@ contract EthCrossChainManager is IEthCrossChainManager, UpgradableECCM {
         uint256 curEpochStartHeight = eccd.getCurEpochStartHeight();
 
         uint n = polyChainBKs.length;
-        // todo this need to know poly's consensus
         if (header.height >= curEpochStartHeight) {
             // It's enough to verify rawHeader signature
             require(ECCUtils.verifySig(rawHeader, headerSig, polyChainBKs, n - ( n - 1) / 3), "Verify poly chain header signature failed!");
@@ -229,20 +156,14 @@ contract EthCrossChainManager is IEthCrossChainManager, UpgradableECCM {
         // Parse the toMerkleValue struct and make sure the tx has not been processed, then mark this tx as processed
         ECCUtils.ToMerkleValue memory toMerkleValue = ECCUtils.deserializeMerkleValue(toMerkleValueBs);
         require(!eccd.checkIfFromChainTxExist(toMerkleValue.fromChainID, Utils.bytesToBytes32(toMerkleValue.txHash)), "the transaction has been executed!");
-        //save this tx after execute it
         require(eccd.markFromChainTxExist(toMerkleValue.fromChainID, Utils.bytesToBytes32(toMerkleValue.txHash)), "Save crosschain tx exist failed!");
         
         // Ethereum ChainId is 2, we need to check the transaction is for Ethereum network
-        //to chain id must be this chain's id
-        require(toMerkleValue.makeTxParam.toChainId == chainId, "This Tx is not aiming at this network!");
+        require(toMerkleValue.makeTxParam.toChainId == chainId, "This Tx is not aiming at Ethereum network!");
         
         // Obtain the targeting contract, so that Ethereum cross chain manager contract can trigger the executation of cross chain tx on Ethereum side
         address toContract = Utils.bytesToAddress(toMerkleValue.makeTxParam.toContract);
         
-        // only invoke PreWhiteListed Contract and method For Now
-        //to contract must in whitelist
-        require(whiteListContractMethodMap[toContract][toMerkleValue.makeTxParam.method],"Invalid to contract or method");
-
         //TODO: check this part to make sure we commit the next line when doing local net UT test
         require(_executeCrossChainTx(toContract, toMerkleValue.makeTxParam.method, toMerkleValue.makeTxParam.args, toMerkleValue.makeTxParam.fromContract, toMerkleValue.fromChainID), "Execute CrossChain Tx failed!");
 
