@@ -114,7 +114,7 @@ contract EthCrossChainManager is IEthCrossChainManager, UpgradableECCM {
 //        require(eccd.putEthTxHash(keccak256(rawParam)), "Save ethTxHash by index to Data contract failed!");
         
         // Fire the cross chain event denoting there is a cross chain request from Ethereum network to other public chains through Poly chain network
-        emit CrossChainEvent(tx.origin, paramTxHash, msg.sender, toChainId, toContract, rawParam);
+//        emit CrossChainEvent(tx.origin, paramTxHash, msg.sender, toChainId, toContract, rawParam);
         return true;
     }
     /* @notice              Verify Poly chain header and proof, execute the cross chain tx from Poly chain to Ethereum
