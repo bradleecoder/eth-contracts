@@ -102,9 +102,9 @@ contract EthCrossChainManager is IEthCrossChainManager, UpgradableECCM {
         
         // Construct the makeTxParam, and put the hash info storage, to help provide proof of tx existence
         bytes memory rawParam = abi.encodePacked(ZeroCopySink.WriteVarBytes(paramTxHash),
-            ZeroCopySink.WriteVarBytes(abi.encodePacked(sha256(abi.encodePacked(address(this), paramTxHash)))),
-            ZeroCopySink.WriteVarBytes(Utils.addressToBytes(msg.sender)),
-            ZeroCopySink.WriteUint64(toChainId)
+            ZeroCopySink.WriteVarBytes(abi.encodePacked(sha256(abi.encodePacked(address(this), paramTxHash))))
+//            ZeroCopySink.WriteVarBytes(Utils.addressToBytes(msg.sender)),
+//            ZeroCopySink.WriteUint64(toChainId)
 //            ZeroCopySink.WriteVarBytes(toContract),
 //            ZeroCopySink.WriteVarBytes(method),
 //            ZeroCopySink.WriteVarBytes(txData)
