@@ -101,21 +101,21 @@ contract EthCrossChainManager is IEthCrossChainManager, UpgradableECCM {
         bytes memory paramTxHash = Utils.uint256ToBytes(txHashIndex);
         
         // Construct the makeTxParam, and put the hash info storage, to help provide proof of tx existence
-        bytes memory rawParam = abi.encodePacked(ZeroCopySink.WriteVarBytes(paramTxHash)
+//        bytes memory rawParam = abi.encodePacked(ZeroCopySink.WriteVarBytes(paramTxHash)
 //            ZeroCopySink.WriteVarBytes(abi.encodePacked(sha256(abi.encodePacked(address(this), paramTxHash))))
 //            ZeroCopySink.WriteVarBytes(Utils.addressToBytes(msg.sender)),
 //            ZeroCopySink.WriteUint64(toChainId)
 //            ZeroCopySink.WriteVarBytes(toContract),
 //            ZeroCopySink.WriteVarBytes(method),
 //            ZeroCopySink.WriteVarBytes(txData)
-        );
-
+//        );
+        bytes memory rawParam = abi.encodePacked(paramTxHash);
         // Must save it in the storage to be included in the proof to be verified.
-//        require(eccd.putEthTxHash(keccak256(rawParam)), "Save ethTxHash by index to Data contract failed!");
-//        require(eccd.putEthTxHash(keccak256("")), "Save ethTxHash by index to Data contract failed!");
+        require(eccd.putEthTxHash(keccak256(rawParam)), "Save ethTxHash by index to Data contract failed!");
+        require(eccd.putEthTxHash(keccak256("")), "Save ethTxHash by index to Data contract failed!");
         
         // Fire the cross chain event denoting there is a cross chain request from Ethereum network to other public chains through Poly chain network
-//        emit CrossChainEvent(tx.origin, paramTxHash, msg.sender, toChainId, toContract, rawParam);
+        emit CrossChainEvent(tx.origin, paramTxHash, msg.sender, toChainId, toContract, rawParam);
         return true;
     }
     /* @notice              Verify Poly chain header and proof, execute the cross chain tx from Poly chain to Ethereum
