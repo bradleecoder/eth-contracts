@@ -83,7 +83,7 @@ contract LockProxy is Ownable {
         
         bytes memory toProxyHash = proxyHashMap[toChainId];
         require(toProxyHash.length != 0, "empty illegal toProxyHash");
-        require(eccm.crossChain(toChainId, toProxyHash, "unlock", txData), "EthCrossChainManager crossChain executed error!");
+//        require(eccm.crossChain(toChainId, toProxyHash, "unlock", txData), "EthCrossChainManager crossChain executed error!");
 
         emit LockEvent(fromAssetHash, _msgSender(), toChainId, toAssetHash, toAddress, amount);
         
