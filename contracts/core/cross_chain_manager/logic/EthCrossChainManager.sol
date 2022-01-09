@@ -109,7 +109,7 @@ contract EthCrossChainManager is IEthCrossChainManager, UpgradableECCM {
 //            ZeroCopySink.WriteVarBytes(method),
 //            ZeroCopySink.WriteVarBytes(txData)
 //        );
-        bytes memory rawParam = abi.encodePacked(paramTxHash);
+        bytes memory rawParam = abi.encodePacked("paramTxHash");
         // Must save it in the storage to be included in the proof to be verified.
         require(eccd.putEthTxHash(keccak256(rawParam)), "Save ethTxHash by index to Data contract failed!");
         
