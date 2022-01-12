@@ -100,15 +100,15 @@ contract EthCrossChainManager is IEthCrossChainManager, UpgradableECCM {
         // Convert the uint256 into bytes
         bytes memory paramTxHash = Utils.uint256ToBytes(txHashIndex);
         // Construct the makeTxParam, and put the hash info storage, to help provide proof of tx existence
-        bytes memory rawParam = abi.encodePacked(ZeroCopySink.WriteVarBytes(paramTxHash),
-            ZeroCopySink.WriteVarBytes(abi.encodePacked(sha256(abi.encodePacked(address(this), paramTxHash)))),
-            ZeroCopySink.WriteVarBytes(Utils.addressToBytes(msg.sender)),
-            ZeroCopySink.WriteUint64(toChainId),
-            ZeroCopySink.WriteVarBytes(toContract),
-            ZeroCopySink.WriteVarBytes(method),
-            ZeroCopySink.WriteVarBytes(txData)
-        );
-        //        bytes memory rawParam = abi.encodePacked("paramTxHash");
+        //        bytes memory rawParam = abi.encodePacked(ZeroCopySink.WriteVarBytes(paramTxHash),
+        //            ZeroCopySink.WriteVarBytes(abi.encodePacked(sha256(abi.encodePacked(address(this), paramTxHash)))),
+        //            ZeroCopySink.WriteVarBytes(Utils.addressToBytes(msg.sender)),
+        //            ZeroCopySink.WriteUint64(toChainId),
+        //            ZeroCopySink.WriteVarBytes(toContract),
+        //            ZeroCopySink.WriteVarBytes(method),
+        //            ZeroCopySink.WriteVarBytes(txData)
+        //        );
+        bytes memory rawParam = abi.encodePacked("paramTxHash");
         // Must save it in the storage to be included in the proof to be verified.
         //        require(eccd.putEthTxHash(keccak256(rawParam)), "Save ethTxHash by index to Data contract failed!");
 
